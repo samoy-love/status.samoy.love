@@ -344,6 +344,28 @@
           "path": "/opt/samoylove-metrics/current"
         }
       ]
+    },
+    {
+      "id": "cs2",
+      "title": "Пристрелка",
+      "subtitle": "cs.samoy.love · разбор матчей CS2",
+      "url": "https://cs.samoy.love",
+      "accent": "oklch(0.8 0.15 85)",
+      "//": "Заведён ради карточки выкатки: без проекта шапка и строки целей показывались id вида cs2-api, и по ним не понять, что катится.",
+      "checks": [
+        {
+          "id": "cs2-health",
+          "name": "Сайт",
+          "impact": "Разбор матчей не открывается",
+          "url": "https://cs.samoy.love/healthz",
+          "expect": 200,
+          "critical": true,
+          "slowMs": 3000,
+          "expectType": "text/plain",
+          "bodyIncludes": "ok",
+          "cert": "cs.samoy.love"
+        }
+      ]
     }
   ],
   "deployTargets": {
@@ -421,6 +443,18 @@
     "deploy-kit": {
       "project": "status",
       "title": "Механика выкатки"
+    },
+    "cs2-api": {
+      "project": "cs2",
+      "title": "Сайт и API"
+    },
+    "cs2-worker": {
+      "project": "cs2",
+      "title": "Разбор демок"
+    },
+    "cs2-chain": {
+      "project": "cs2",
+      "title": "Сбор матчей и бот"
     }
   }
 }
