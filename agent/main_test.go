@@ -1183,3 +1183,33 @@ func TestБезВерсииАномалииНет(t *testing.T) {
 		t.Errorf("запись без версии осталась в состоянии: %+v", a.next)
 	}
 }
+
+// Всё, к чему ходит агент, обязано видеть его имя: nginx на хосте по этому
+// имени не пишет запрос в журнал посещаемости. Проверяются оба пути — шаг
+// проверки и чтение version.json: второй ходил без заголовка и представлялся
+// как Go-http-client, то есть считался посетителем.
+func TestАгентПредставляетсяВезде(t *testing.T) {
+	seen := make(chan string, 4)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen <- r.Header.Get("User-Agent")
+		_, _ = w.Write([]byte(`{"version":"1","builtAt":"2026-08-02T01:02:03Z"}`))
+	}))
+	defer srv.Close()
+
+	client := &http.Client{Timeout: httpTimeout, Transport: userAgentTransport{}}
+
+	runStep(Step{URL: srv.URL + "/"}, Check{}, client, nil)
+	buildInfo(Build{Title: "Сайт", Type: "url", Path: srv.URL + "/version.json"}, client)
+
+	close(seen)
+	n := 0
+	for ua := range seen {
+		n++
+		if ua != userAgent {
+			t.Errorf("запрос ушёл с User-Agent %q, ожидали %q", ua, userAgent)
+		}
+	}
+	if n != 2 {
+		t.Fatalf("сервер увидел %d запросов вместо двух", n)
+	}
+}
