@@ -34,6 +34,32 @@ import (
 	"unicode/utf8"
 )
 
+// userAgent — чем агент представляется всем, к кому ходит.
+//
+// Имя обязано начинаться на samoylove-: nginx на хосте не пишет такие запросы
+// в журнал посещаемости (deploy-kit/nginx/conf.d/samoylove-log-metrics.conf,
+// map $samoylove_metrics_loggable). Агент ходит на каждую цель раз в минуту, и
+// без этого «посещаемость» тихого сайта — это он сам.
+//
+// Заголовок ставится транспортом, а не в каждом запросе: version.json уже
+// уезжал без него и представлялся как Go-http-client, то есть был неотличим от
+// чужих роботов и попадал в посещаемость.
+const userAgent = "samoylove-status-agent (+https://status.samoy.love)"
+
+// userAgentTransport подставляет userAgent в каждый запрос клиента.
+type userAgentTransport struct{ base http.RoundTripper }
+
+func (t userAgentTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	// RoundTripper не должен менять переданный запрос — копия дешёвая.
+	clone := req.Clone(req.Context())
+	clone.Header.Set("User-Agent", userAgent)
+	base := t.base
+	if base == nil {
+		base = http.DefaultTransport
+	}
+	return base.RoundTrip(clone)
+}
+
 const (
 	httpTimeout   = 12 * time.Second
 	rawWindow     = 7 * 24 * time.Hour
@@ -556,7 +582,6 @@ func runStep(s Step, c Check, client *http.Client, vars map[string]string) resul
 	if err != nil {
 		return result{status: statusDown, errText: err.Error()}
 	}
-	req.Header.Set("User-Agent", "samoylove-status-agent (+https://status.samoy.love)")
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -1431,7 +1456,7 @@ func main() {
 	}
 
 	now := time.Now().UTC()
-	client := &http.Client{Timeout: httpTimeout}
+	client := &http.Client{Timeout: httpTimeout, Transport: userAgentTransport{}}
 
 	state := State{Services: map[string]*CheckState{}}
 	readJSON(filepath.Join(*dataDir, "state.json"), &state)
