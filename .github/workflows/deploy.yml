@@ -297,4 +297,4 @@ jobs:
         with:
           name: smoke-report
           path: test-results/
-          retention-days: 7
+          retention-days: 1
